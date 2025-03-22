@@ -73,20 +73,39 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			uint totalWadSizeKb = (totalWadSize / 1024) + 1;
 			Console.WriteLine($"Reserving {totalWadSizeKb}kb for WAD file memory");
 
-			_configFile = Encoding.ASCII.GetBytes($"screen_resolution \"{
+			string hudMode = "";
+
+			switch (_settings.HeadsUpMode)
+			{
+				case HudMode.Vanilla:
+					hudMode = "screenblocks 10\nhud_displayed 1\n";
+					break;
+				case HudMode.DSDA:
+					hudMode = "screenblocks 11\nhud_displayed 1\n";
+					break;
+				case HudMode.None:
+					hudMode = "screenblocks 11\nhud_displayed 0\n";
+					break;
+			}
+
+			_configFile = Encoding.ASCII.GetBytes(
+				hudMode
+				+ $"screen_resolution \"{
 				_nativeResolution.X * _settings.ScaleFactor}x{
 				_nativeResolution.Y * _settings.ScaleFactor}\"\n"
 				+ $"usegamma {_settings.Gamma}\n"
 				+ $"render_wipescreen {(_syncSettings.RenderWipescreen ? 1 : 0)}\n"
-				+ "render_aspect 3\n" // 4:3, controls FOV on higher resolutions (see SetRatio())
-				+ "render_stretch_hud 0\n"
+				+ $"dsda_exhud {(_settings.DsdaExHud ? 1 : 0)}\n"
+				+ $"map_totals {(_settings.MapTotals ? 1 : 0)}\n"
+				+ $"map_time {(_settings.MapTime ? 1 : 0)}\n"
+				+ $"map_coordinates {(_settings.MapCoordinates ? 1 : 0)}\n"
+				+ $"hudadd_secretarea {(_settings.ReportSecrets ? 1 : 0)}\n"
 				+ "render_stretchsky 0\n"
 				+ "render_doom_lightmaps 1\n"
-				+ "dsda_exhud 0\n"
+				+ "render_aspect 3\n" // 4:3, controls FOV on higher resolutions (see SetRatio())
+				+ "render_stretch_hud 0\n"
 				+ "uncapped_framerate 0\n"
-				+ "map_coordinates 0\n"
-				+ "map_totals 0\n"
-				+ "map_time 0\n"
+				+ "dsda_show_level_splits 0\n"
 			);
 
 			_elf = new WaterboxHost(new WaterboxOptions
@@ -163,11 +182,9 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 			_args.Add("-warp");
 			ConditionalArg(_syncSettings.InitialEpisode is not 0 && _gameMode != CInterface.GameMode.Commercial, $"{_syncSettings.InitialEpisode}");
 			_args.Add($"{_syncSettings.InitialMap}");
-
 			_args.AddRange([ "-skill", $"{(int)_syncSettings.SkillLevel}" ]);
 			_args.AddRange([ "-complevel", $"{(int)_syncSettings.CompatibilityLevel}" ]);
 			_args.AddRange([ "-config", "dsda-doom.cfg" ]);
-
 			ConditionalArg(!_syncSettings.StrictMode, "-tas");
 			ConditionalArg(_syncSettings.FastMonsters, "-fast");
 			ConditionalArg(_syncSettings.MonstersRespawn, "-respawn");
@@ -205,6 +222,7 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 		private List<string> _args;
 		private List<IRomAsset> _wadFiles;
 		private CInterface.GameMode _gameMode;
+		public string RomDetails { get; } // IRomInfo
 
 		/// <summary>
 		/// core callback for file loading
@@ -266,11 +284,5 @@ namespace BizHawk.Emulation.Cores.Computers.Doom
 				throw new InvalidOperationException($"Unknown error processing file '{filename}'");
 			}
 		}
-
-		// IRegionable
-		public DisplayType Region { get; }
-
-		// IRomInfo
-		public string RomDetails { get; }
 	}
 }
